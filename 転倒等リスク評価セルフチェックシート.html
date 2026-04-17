@@ -44,6 +44,42 @@
       height: 420px;
       width: 100%;
     }
+
+/* ===== スマホで右列(回答)が細すぎて数字が見えない対策 ===== */
+#questionTable{
+  table-layout: fixed; /* 列幅を安定させる */
+}
+
+/* 右列(回答)の最低幅を確保（全端末共通で効く安全策） */
+#questionTable th:nth-child(2),
+#questionTable td:nth-child(2){
+  min-width: 90px;
+  white-space: nowrap;
+}
+
+/* selectの表示（iOS/Android）を安定化 */
+#questionTable select{
+  width: 100%;
+  min-width: 90px;
+  padding: 6px 10px;
+  -webkit-appearance: menulist;
+  appearance: menulist;
+}
+
+/* 画面が狭いときは回答列を広くする */
+@media (max-width: 600px){
+  #questionTable th:nth-child(1),
+  #questionTable td:nth-child(1){ width: 70% !important; }
+
+  #questionTable th:nth-child(2),
+  #questionTable td:nth-child(2){ width: 30% !important; }
+
+  /* 表のセルの余白を少し詰めて見切れを防ぐ */
+  #questionTable th, #questionTable td{ padding: 6px; }
+}
+
+
+
   </style>
 </head>
 
