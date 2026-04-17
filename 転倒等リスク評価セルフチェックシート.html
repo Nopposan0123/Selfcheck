@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>転倒等リスク評価セルフチェック（自動評価・レーダー）</title>
+
+  <!-- ★ご指定のChart.js 2.7.2 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.min.js"></script>
+
+  <style>
+    body{ font-family:"Meiryo", system-ui, sans-serif; line-height:1.6; margin:16px; }
+    h2{ background:#e6f0fa; padding:8px 10px; border-radius:8px; }
+
+    .grid{ display:grid; gap:16px; grid-template-columns: 1fr; }
+    @media(min-width:980px){
+      /* 質問票を広く（左を拡大） */
+      .grid{ grid-template-columns: 1.7fr 0.5fr; }
+    }
+
+    .card{ border:1px solid #ddd; border-radius:14px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.05); background:#fff; }
+
+    table{ border-collapse:collapse; width:100%; margin:8px 0 16px; }
+    th,td{ border:1px solid #999; padding:8px; vertical-align:top; }
+    th{ background:#f2f2f2; text-align:left; }
+
+    input[type="number"], select, textarea{
+      width:100%; box-sizing:border-box; padding:6px 8px;
+      border:1px solid #bbb; border-radius:8px; font-size:1em;
+    }
+
+    .note{ font-size:.9em; color:#555; }
+    .badge{ display:inline-block; padding:2px 10px; border-radius:999px; background:#f6f6f6; border:1px solid #ddd; font-size:.9em; }
+
+    /* 質問票の列幅（質問を広く） */
+    #questionTable th:nth-child(1), #questionTable td:nth-child(1){ width: 84%; }
+    #questionTable th:nth-child(2), #questionTable td:nth-child(2){ width: 16%; }
+
+    .row2{ display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+
+    /* ★チャートが見えない対策：親に高さを持たせる */
+    .chartWrap{
+      position: relative;
+      height: 420px;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>転倒等リスク評価セルフチェック</h1>
+  <div class="note">黒：身体機能（Ⅰ）／赤：質問票（Ⅱ）</div>
+
+  <div class="grid">
+
+    <!-- 左：入力 -->
+    <div class="card">
+      <h2>Ⅰ．身体機能計測（自動評価）</h2>
+
+      <table>
+        <tr>
+          <th style="width:34%">項目</th>
+          <th>測定値入力</th>
+          <th style="width:14%">評価(1～5)</th>
+        </tr>
+
+        <tr>
+          <td>① 2ステップテスト（歩行能力・筋力）</td>
+          <td>
+            <div class="row2">
+              <div>
+                <label>身長(cm)</label>
+                <input id="heightCm" type="number" step="0.1" min="0" placeholder="例：170.0">
+              </div>
+              <div>
+                <label>2ステップ距離合計(cm)</label>
+                <input id="twoStepCm" type="number" step="0.1" min="0" placeholder="例：250.0">
+              </div>
+            </div>
+            <div class="note">比（2ステップ/身長）：<span class="badge" id="twoStepRatio">-</span></div>
+          </td>
+          <td><span class="badge" id="scoreTwoStep">-</span></td>
+        </tr>
+
+        <tr>
+          <td>② 座位ステッピングテスト（敏捷性）</td>
+          <td>
+            <label>回／20秒</label>
+            <input id="seatedStepping" type="number" step="1" min="0" placeholder="例：35">
+          </td>
+          <td><span class="badge" id="scoreSeated">-</span></td>
+        </tr>
+
+        <tr>
+          <td>③ ファンクショナルリーチ（動的バランス）</td>
+          <td>
+            <label>cm</label>
+            <input id="functionalReach" type="number" step="0.1" min="0" placeholder="例：32.0">
+          </td>
+          <td><span class="badge" id="scoreReach">-</span></td>
+        </tr>
+
+        <tr>
+          <td>④ 閉眼片足立ち（静的バランス）</td>
+          <td>
+            <label>秒</label>
+            <input id="oneLegClosed" type="number" step="0.1" min="0" placeholder="例：18.0">
+          </td>
+          <td><span class="badge" id="scoreClosed">-</span></td>
+        </tr>
+
+        <tr>
+          <td>⑤ 開眼片足立ち（静的バランス）</td>
+          <td>
+            <label>秒</label>
+            <input id="oneLegOpen" type="number" step="0.1" min="0" placeholder="例：60.0">
+          </td>
+          <td><span class="badge" id="scoreOpen">-</span></td>
+        </tr>
+      </table>
+
+      <h2>Ⅱ．身体機能に対する意識（自動評価）</h2>
+
+      <table id="questionTable">
+        <tr>
+          <th>質問</th>
+          <th>回答（1～5）</th>
+        </tr>
+        <tr><td>1. 人ごみの中、正面から来る人にぶつからずよけて歩けますか</td><td><select id="q1"></select></td></tr>
+        <tr><td>2. 同年代に比べて体力に自信はありますか</td><td><select id="q2"></select></td></tr>
+        <tr><td>3. 突発的な事態に対する体の反応は素早い方と思いますか</td><td><select id="q3"></select></td></tr>
+        <tr><td>4. 歩行中、小さい段差に足を引っかけたとき、すぐに次の足が出ると思いますか</td><td><select id="q4"></select></td></tr>
+        <tr><td>5. 片足で立ったまま靴下を履くことができると思いますか</td><td><select id="q5"></select></td></tr>
+        <tr><td>6. 一直線のライン上を継ぎ足歩行で簡単に歩けると思いますか</td><td><select id="q6"></select></td></tr>
+        <tr><td>7. 眼を閉じて片足でどのくらい立つ自信がありますか</td><td><select id="q7"></select></td></tr>
+        <tr><td>8. 電車に乗って、つり革につかまらずどのくらい立っていられると思いますか</td><td><select id="q8"></select></td></tr>
+        <tr><td>9. 眼を開けて片足でどのくらい立つ自信がありますか</td><td><select id="q9"></select></td></tr>
+      </table>
+
+      <div class="note">
+        5軸への割当：①(Q1+Q2) ②(Q3+Q4) ③(Q5+Q6) ④(Q7) ⑤(Q8+Q9)
+      </div>
+
+      <div class="card">
+      <h2>Ⅲ．レーダーチャート</h2>
+      <div class="chartWrap">
+        <canvas id="radar"></canvas>
+      </div>
+      <div class="note" id="chartStatus"></div>
+    </div>
+
+    </div>
+
+
+  </div>
+
+<script>
+/* ========= 共通 ========= */
+const $ = (id) => document.getElementById(id);
+function toNum(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
+function setBadge(id, value){ $(id).textContent = (value==null) ? "-" : value; }
+
+function scoreByUpperBounds(x, bounds){
+  if (x == null) return null;
+  for (const b of bounds){ if (x <= b.max) return b.score; }
+  return null;
+}
+
+/* ========= Ⅰ：身体機能評価（PDFの評価表） ========= */
+const BOUNDS = {
+  twoStepRatio: [
+    {max: 1.24, score: 1},
+    {max: 1.38, score: 2},
+    {max: 1.46, score: 3},
+    {max: 1.65, score: 4},
+    {max: Infinity, score: 5},
+  ],
+  seatedStepping: [
+    {max: 24, score: 1},
+    {max: 28, score: 2},
+    {max: 43, score: 3},
+    {max: 47, score: 4},
+    {max: Infinity, score: 5},
+  ],
+  functionalReach: [
+    {max: 19, score: 1},
+    {max: 29, score: 2},
+    {max: 35, score: 3},
+    {max: 39, score: 4},
+    {max: Infinity, score: 5},
+  ],
+  oneLegClosed: [
+    {max: 7, score: 1},
+    {max: 17, score: 2},
+    {max: 55, score: 3},
+    {max: 90, score: 4},
+    {max: Infinity, score: 5},
+  ],
+  oneLegOpen: [
+    {max: 15, score: 1},
+    {max: 30, score: 2},
+    {max: 84, score: 3},
+    {max: 120, score: 4},
+    {max: Infinity, score: 5},
+  ],
+};
+
+function computePhysicalScores(){
+  const height = toNum($("heightCm").value);
+  const twoStep = toNum($("twoStepCm").value);
+
+  let ratio = null, s1 = null;
+  if (height != null && height > 0 && twoStep != null){
+    ratio = twoStep / height;
+    s1 = scoreByUpperBounds(ratio, BOUNDS.twoStepRatio);
+    setBadge("twoStepRatio", ratio.toFixed(2));
+  } else {
+    setBadge("twoStepRatio", null);
+  }
+  setBadge("scoreTwoStep", s1);
+
+  const seated = toNum($("seatedStepping").value);
+  const s2 = scoreByUpperBounds(seated, BOUNDS.seatedStepping);
+  setBadge("scoreSeated", s2);
+
+  const reach = toNum($("functionalReach").value);
+  const s3 = scoreByUpperBounds(reach, BOUNDS.functionalReach);
+  setBadge("scoreReach", s3);
+
+  const closed = toNum($("oneLegClosed").value);
+  const s4 = scoreByUpperBounds(closed, BOUNDS.oneLegClosed);
+  setBadge("scoreClosed", s4);
+
+  const open = toNum($("oneLegOpen").value);
+  const s5 = scoreByUpperBounds(open, BOUNDS.oneLegOpen);
+  setBadge("scoreOpen", s5);
+
+  return [s1,s2,s3,s4,s5].map(v => v ?? 0);
+}
+
+/* ========= Ⅱ：質問票評価（合計2～10→1～5） ========= */
+function sumToScore(sum){
+  if (sum == null) return 0;
+  if (sum <= 3) return 1;
+  if (sum <= 5) return 2;
+  if (sum <= 7) return 3;
+  if (sum <= 9) return 4;
+  return 5; // 10
+}
+
+const QUESTION_GROUPS = [
+  { ids:["q1","q2"], multiplier:1 },
+  { ids:["q3","q4"], multiplier:1 },
+  { ids:["q5","q6"], multiplier:1 },
+  { ids:["q7"], multiplier:2 },
+  { ids:["q8","q9"],      multiplier:1 }, 
+];
+
+function computeQuestionScores(){
+  const scores = [];
+  for (const g of QUESTION_GROUPS){
+    let sum = 0;
+    for (const id of g.ids){
+      const v = toNum($(id).value);
+      if (v == null){ sum = null; break; }
+      sum += v;
+    }
+    if (sum != null) sum *= (g.multiplier ?? 1);
+    scores.push(sumToScore(sum));
+  }
+  return scores;
+}
+
+/* ========= レーダーチャート（Chart.js 2.7.2） ========= */
+const LABELS = [
+  "①歩行能力・筋力",
+  "②敏捷性",
+  "③動的バランス",
+  "④静的バランス（閉眼）",
+  "⑤静的バランス（開眼）"
+];
+
+let radarChart = null;
+
+function initChart(){
+  if (typeof Chart === "undefined") {
+    $("chartStatus").textContent = "Chart.js が読み込めていません（CDNブロック等の可能性）";
+    return;
+  }
+  const ctx = document.getElementById("radar").getContext("2d");
+
+  radarChart = new Chart(ctx, {
+    type: "radar",
+    data: {
+      labels: LABELS,
+      datasets: [
+        {
+          label: "身体機能計測（黒）",
+          data: [0,0,0,0,0],
+          backgroundColor: "rgba(0,0,0,0.06)",
+          borderColor: "#111",
+          pointBackgroundColor: "#111",
+          borderWidth: 2
+        },
+        {
+          label: "身体機能に対する意識（赤）",
+          data: [0,0,0,0,0],
+          backgroundColor: "rgba(221,17,17,0.08)",
+          borderColor: "#d11",
+          pointBackgroundColor: "#d11",
+          borderWidth: 2,
+          borderDash: [8, 6],
+          borderDashOffset: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,   // 親の高さ(chartWrap)に合わせて描画 [4](https://github.com/chartjs/Chart.js/blob/master/docs/configuration/responsive.md)
+      legend: { position: "bottom" },
+      scale: {                       // ★2.7.2はここ（scales ではない） [2](https://qiita.com/naopin708/items/21c0630cf76805730180)[3](https://misc.0o0o.org/chartjs-doc-ja/axes/radial/linear.html)
+        ticks: {
+          beginAtZero: true,
+          min: 0,
+          max: 5,
+          stepSize: 1
+        },
+        pointLabels: { fontSize: 12 }
+      }
+    }
+  });
+
+  $("chartStatus").textContent = "";
+}
+
+function updateAll(){
+  const physical = computePhysicalScores();
+  const questions = computeQuestionScores();
+
+  if (radarChart){
+    radarChart.data.datasets[0].data = physical;
+    radarChart.data.datasets[1].data = questions;
+    radarChart.update();
+  }
+}
+
+/* ========= 初期化 ========= */
+function fillSelectOptions(sel){
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "選択";
+  sel.appendChild(opt0);
+  for (let i=1;i<=5;i++){
+    const o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = String(i);
+    sel.appendChild(o);
+  }
+}
+
+(function boot(){
+  for (let i=1;i<=9;i++) fillSelectOptions($("q"+i));
+
+  // 入力イベント
+  const ids = ["heightCm","twoStepCm","seatedStepping","functionalReach","oneLegClosed","oneLegOpen",
+               "q1","q2","q3","q4","q5","q6","q7","q8","q9"];
+  ids.forEach(id => {
+    $(id).addEventListener("input", updateAll);
+    $(id).addEventListener("change", updateAll);
+  });
+
+  initChart();
+  updateAll();
+})();
+</script>
+</body>
+</html>
